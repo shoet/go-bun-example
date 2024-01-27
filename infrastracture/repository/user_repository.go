@@ -28,3 +28,12 @@ func (u *UserRepository) CreateUser(ctx context.Context, tx *bun.Tx, user *entit
 	}
 	return nil
 }
+
+func (u *UserRepository) UpdateUser(
+	ctx context.Context, tx *bun.Tx, user *entities.User,
+) error {
+	if _, err := tx.NewUpdate().Model(user).WherePK().Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}

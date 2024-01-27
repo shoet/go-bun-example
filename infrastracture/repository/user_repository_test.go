@@ -2,8 +2,11 @@ package repository_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/shoet/go-bun-example/entities"
 	"github.com/shoet/go-bun-example/infrastracture/repository"
 	"github.com/shoet/go-bun-example/testutil"
@@ -71,4 +74,82 @@ func Test_UserRepository_CreateUser(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func Test_UpdateRepository_CreateUser(t *testing.T) {
+	type args struct {
+		updateUser *entities.User
+		prepare    func(ctx context.Context, tx *bun.Tx) (*entities.User, error)
+	}
+	type wants struct {
+		user *entities.User
+		err  error
+	}
+	tests := []struct {
+		name  string
+		args  args
+		wants wants
+	}{
+		{
+			name: "success",
+			args: args{
+				prepare: func(ctx context.Context, tx *bun.Tx) (*entities.User, error) {
+					testUser := &entities.User{Name: "test01"}
+					result, err := tx.NewInsert().Model(testUser).Exec(ctx)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create user: %w", err)
+					}
+					id, err := result.LastInsertId()
+					if err != nil {
+						return nil, fmt.Errorf("failed to get last insert id: %w", err)
+					}
+					return &entities.User{ID: id, Name: "test01"}, nil
+				},
+				updateUser: &entities.User{Name: "test02"},
+			},
+			wants: wants{
+				user: &entities.User{Name: "test02"},
+				err:  nil,
+			},
+		},
+	}
+	bunDB, closer, err := testutil.ConnectBunDBForTest(t)
+	if err != nil {
+		t.Fatalf("failed to connect bun db: %v", err)
+	}
+	t.Cleanup(func() { closer() })
+	ctx := context.Background()
+	userRepository, err := repository.NewUserRepository()
+	if err != nil {
+		t.Fatalf("failed to create user repository: %v", err)
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testutil.DoInTXForTest(t, ctx, bunDB, func(ctx context.Context, tx *bun.Tx) error {
+				user, err := tt.args.prepare(ctx, tx)
+				if err != nil {
+					t.Fatalf("failed to prepare: %v", err)
+				}
+				updateUser := tt.args.updateUser
+				updateUser.ID = user.ID
+				if err := userRepository.UpdateUser(ctx, tx, updateUser); err != nil {
+					t.Fatalf("failed to update user: %v", err)
+				}
+				var got entities.User
+				if err := tx.
+					NewSelect().
+					Model((*entities.User)(nil)).
+					Where("id = ?", user.ID).
+					Scan(ctx, &got); err != nil {
+					t.Fatalf("failed to get user: %v", err)
+				}
+
+				cmpopts := cmpopts.IgnoreFields(entities.User{}, "ID")
+				if diff := cmp.Diff(tt.wants.user, &got, cmpopts); diff != "" {
+					t.Errorf("differs: (-want +got)\n%s", diff)
+				}
+				return nil
+			})
+		})
+	}
 }
