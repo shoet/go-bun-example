@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -10,13 +9,7 @@ import (
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		env, ok := os.LookupEnv("ENV")
-		if !ok {
-			panic("ENV is not set")
-		}
-		if env == "local" {
-			panic(fmt.Sprintf("failed to load .env: %s", err))
-		}
+		fmt.Printf("failed to load .env: %v\n", err)
 	}
 }
 
