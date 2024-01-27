@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  todo-db:
+    image: mysql:8.0.33
+    platform: linux/arm64/v8
+    container_name: gobun-db
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_USER: gobun
+      MYSQL_PASSWORD: gobun
+      MYSQL_DATABASE: gobun
+    volumes:
+      - gobun-db-data:/var/lib/mysql
+      - $PWD/_tools/mysql/conf.d:/etc/mysql/conf.d:cached
+    ports:
+      - "3306:3306"
+volumes:
+  gobun-db-data:
