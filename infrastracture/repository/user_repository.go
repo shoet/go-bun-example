@@ -21,3 +21,10 @@ func (u *UserRepository) GetUsers(ctx context.Context, tx *bun.Tx, limit int) ([
 	}
 	return users, nil
 }
+
+func (u *UserRepository) CreateUser(ctx context.Context, tx *bun.Tx, user *entities.User) error {
+	if _, err := tx.NewInsert().Model(user).Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}

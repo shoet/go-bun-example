@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/shoet/go-bun-example/entities"
 	"github.com/shoet/go-bun-example/infrastracture/repository"
 	"github.com/shoet/go-bun-example/testutil"
 	"github.com/uptrace/bun"
@@ -16,21 +17,17 @@ func Test_UserRepository_GetUsers(t *testing.T) {
 	}
 	t.Cleanup(func() { closer() })
 	ctx := context.Background()
+	userRepository, err := repository.NewUserRepository()
+	if err != nil {
+		t.Fatalf("failed to create user repository: %v", err)
+	}
 	testutil.DoInTXForTest(t, ctx, bunDB, func(ctx context.Context, tx *bun.Tx) error {
-		prepareQuery := `
-		INSERT INTO users (name)
-		VALUES 
-			("test01"), ("test02"), ("test03"), ("test04"), ("test05"), 
-			("test06"), ("test07"), ("test08"), ("test09"), ("test10"),
-			("test11"), ("test12"), ("test13"), ("test14"), ("test15"), 
-			("test16"), ("test17"), ("test18"), ("test19"), ("test20")
-		;
-		`
-		if _, err := tx.Exec(prepareQuery); err != nil {
-			t.Fatalf("failed to prepare query: %v", err)
+		testUsers := []*entities.User{
+			{Name: "test01"}, {Name: "test02"}, {Name: "test03"}, {Name: "test04"}, {Name: "test05"},
+			{Name: "test06"}, {Name: "test07"}, {Name: "test08"}, {Name: "test09"}, {Name: "test10"},
+			{Name: "test11"}, {Name: "test12"}, {Name: "test13"}, {Name: "test14"}, {Name: "test15"},
 		}
-
-		userRepository, err := repository.NewUserRepository()
+		_, err := tx.NewInsert().Model(&testUsers).Exec(ctx)
 		if err != nil {
 			t.Fatalf("failed to create user repository: %v", err)
 		}
@@ -45,5 +42,33 @@ func Test_UserRepository_GetUsers(t *testing.T) {
 
 		return nil
 	})
+}
 
+func Test_UserRepository_CreateUser(t *testing.T) {
+	bunDB, closer, err := testutil.ConnectBunDBForTest(t)
+	if err != nil {
+		t.Fatalf("failed to connect bun db: %v", err)
+	}
+	t.Cleanup(func() { closer() })
+	ctx := context.Background()
+	userRepository, err := repository.NewUserRepository()
+	if err != nil {
+		t.Fatalf("failed to create user repository: %v", err)
+	}
+	testutil.DoInTXForTest(t, ctx, bunDB, func(ctx context.Context, tx *bun.Tx) error {
+		user := &entities.User{Name: "test01"}
+		if err := userRepository.CreateUser(ctx, tx, user); err != nil {
+			t.Fatalf("failed to create user: %v", err)
+		}
+
+		var got entities.User
+		if err := tx.
+			NewSelect().
+			Model((*entities.User)(nil)).
+			Where("name = ?", "test01").
+			Scan(ctx, &got); err != nil {
+			t.Fatalf("failed to get user: %v", err)
+		}
+		return nil
+	})
 }
